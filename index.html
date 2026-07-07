@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>강남구 아파트 매매 실거래가</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 6px; }
+    .subtitle { color: #94a3b8; margin-bottom: 20px; font-size: 0.95rem; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .card h2 { font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px; }
+    .metric { font-size: 1.45rem; font-weight: 700; color: #38bdf8; }
+    .metric-label { color: #64748b; font-size: 0.8rem; margin-top: 4px; }
+    .dong-list {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .dong-list h3 { font-size: 0.95rem; color: #cbd5e1; margin-bottom: 10px; }
+    .dong-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .dong-tag {
+      background: #334155;
+      color: #e2e8f0;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .dong-tag:hover, .dong-tag.active { background: #2563eb; }
+    .toolbar { margin-bottom: 14px; }
+    input {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      width: min(320px, 100%);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 11px 12px;
+      text-align: right;
+      border-bottom: 1px solid #334155;
+      font-size: 0.9rem;
+    }
+    th { background: #0f172a; color: #94a3b8; font-weight: 600; }
+    td.left, th.left { text-align: left; }
+    tr:hover td { background: #273449; }
+    .loading, .error {
+      text-align: center;
+      padding: 48px;
+      color: #94a3b8;
+    }
+    .error { color: #fca5a5; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>서울 강남구 아파트 매매 실거래가</h1>
+  <p class="subtitle">
+    국토교통부 실거래가 API ·
+    조회기간: <span id="period">-</span> ·
+    총 <span id="totalCount">0</span>건
+  </p>
+
+  <div id="status" class="loading">실거래 데이터를 불러오는 중입니다...</div>
+
+  <div id="content" hidden>
+    <div class="summary" id="summary"></div>
+    <div class="dong-list" id="dongList" hidden>
+      <h3>거래 많은 법정동 (클릭하여 필터)</h3>
+      <div class="dong-tags" id="dongTags"></div>
+    </div>
+    <div class="toolbar">
+      <input id="searchInput" type="search" placeholder="아파트명 검색">
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="left">계약일</th>
+          <th class="left">아파트</th>
+          <th class="left">법정동</th>
+          <th>거래금액</th>
+          <th>전용면적(㎡)</th>
+          <th>층</th>
+          <th>건축년도</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let allTrades = [];
+    let activeDong = "";
+
+    const fmtAmount = (amount) => {
+      if (!amount) return "-";
+      if (amount >= 10000) return `${(amount / 10000).toFixed(1)}억`;
+      return `${amount.toLocaleString("ko-KR")}만`;
+    };
+
+    const fmtPeriod = (months) => {
+      if (!months?.length) return "-";
+      const sorted = [...months].sort();
+      const y = (s) => `${s.slice(0, 4)}.${s.slice(4, 6)}`;
+      return `${y(sorted.at(-1))} ~ ${y(sorted[0])}`;
+    };
+
+    function renderSummary(summary) {
+      document.getElementById("summary").innerHTML = `
+        <div class="card">
+          <h2>거래 건수</h2>
+          <div class="metric">${summary.count.toLocaleString("ko-KR")}건</div>
+        </div>
+        <div class="card">
+          <h2>평균 거래가</h2>
+          <div class="metric">${fmtAmount(summary.avgAmount)}</div>
+        </div>
+        <div class="card">
+          <h2>최고 거래가</h2>
+          <div class="metric">${fmtAmount(summary.maxAmount)}</div>
+        </div>
+        <div class="card">
+          <h2>최저 거래가</h2>
+          <div class="metric">${fmtAmount(summary.minAmount)}</div>
+        </div>
+      `;
+    }
+
+    function renderDongTags(topDongs) {
+      const wrap = document.getElementById("dongList");
+      const tags = document.getElementById("dongTags");
+      if (!topDongs?.length) {
+        wrap.hidden = true;
+        return;
+      }
+      wrap.hidden = false;
+      tags.innerHTML = [
+        `<span class="dong-tag ${activeDong === "" ? "active" : ""}" data-dong="">전체</span>`,
+        ...topDongs.map((d) =>
+          `<span class="dong-tag ${activeDong === d.dong ? "active" : ""}" data-dong="${d.dong}">${d.dong} ${d.count}건</span>`
+        ),
+      ].join("");
+      tags.querySelectorAll(".dong-tag").forEach((el) => {
+        el.addEventListener("click", () => {
+          activeDong = el.dataset.dong || "";
+          renderDongTags(topDongs);
+          applyFilters();
+        });
+      });
+    }
+
+    function renderTable(trades) {
+      const tbody = document.getElementById("tableBody");
+      if (!trades.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="left">표시할 거래가 없습니다.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = trades.map((t) => `
+        <tr>
+          <td class="left">${t.dealDate || "-"}</td>
+          <td class="left">${t.aptNm}</td>
+          <td class="left">${t.umdNm}</td>
+          <td>${fmtAmount(t.dealAmount)}</td>
+          <td>${t.excluUseAr ? Number(t.excluUseAr).toFixed(2) : "-"}</td>
+          <td>${t.floor || "-"}</td>
+          <td>${t.buildYear || "-"}</td>
+        </tr>
+      `).join("");
+    }
+
+    function applyFilters() {
+      const keyword = document.getElementById("searchInput").value.trim();
+      let filtered = allTrades;
+      if (activeDong) filtered = filtered.filter((t) => t.umdNm === activeDong);
+      if (keyword) filtered = filtered.filter((t) => t.aptNm.includes(keyword));
+      renderTable(filtered);
+    }
+
+    async function load() {
+      const status = document.getElementById("status");
+      const content = document.getElementById("content");
+      try {
+        const res = await fetch("/api/dashboard");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "API 오류");
+
+        allTrades = data.trades || [];
+        document.getElementById("period").textContent = fmtPeriod(data.dealMonths);
+        document.getElementById("totalCount").textContent = (data.totalCount || 0).toLocaleString("ko-KR");
+        renderSummary(data.summary || { count: 0, avgAmount: 0, maxAmount: 0, minAmount: 0 });
+        renderDongTags(data.summary?.topDongs || []);
+        applyFilters();
+
+        document.getElementById("searchInput").addEventListener("input", applyFilters);
+        status.hidden = true;
+        content.hidden = false;
+      } catch (err) {
+        status.className = "error";
+        status.textContent = `오류: ${err.message}`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: apt-sales-gangnam
+    runtime: python
+    plan: free
+    buildCommand: echo "no build"
+    startCommand: python server.py
+    envVars:
+      - key: SERVICE_KEY
+        sync: false
+      - key: HOST
+        value: 0.0.0.0
+      - key: PYTHON_VERSION
+        value: "3.12.0"
