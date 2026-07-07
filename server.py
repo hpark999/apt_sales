@@ -183,9 +183,20 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/dashboard":
             self.send_dashboard()
             return
+        if self.path == "/api/health":
+            self.send_health()
+            return
         if self.path in ("/", ""):
             self.path = "/index.html"
         super().do_GET()
+
+    def send_health(self) -> None:
+        body = json.dumps({"status": "ok"}, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def send_dashboard(self) -> None:
         try:
