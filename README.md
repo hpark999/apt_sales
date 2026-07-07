@@ -1,17 +1,36 @@
 # apt_sales — 서울 강남구 아파트 매매 실거래가 대시보드
 
-국토교통부 [아파트 매매 실거래가 API](https://www.data.go.kr/data/15126469/openapi.do)를 이용해 강남구(`11680`) 최근 6개월 실거래 데이터를 보여주는 웹 대시보드입니다.
+국토교통부 [아파트 매매 실거래가 API](https://www.data.go.kr/data/15126469/openapi.do)를 이용한 강남구 실거래 대시보드입니다.
 
-## 현재 상태
+## 배포 URL
 
-| 구분 | URL | 설명 |
-|------|-----|------|
-| **코드 저장소** | https://github.com/hpark999/apt_sales | GitHub (소스코드) |
-| **로컬 대시보드** | http://127.0.0.1:8080 | `python server.py` 실행 시 **내 PC에서만** |
-| **공개 대시보드** | Render 배포 후 URL 발급 | **인터넷 어디서나** 접속 가능 |
+| 구분 | URL |
+|------|-----|
+| **GitHub Pages (공개)** | https://hpark999.github.io/apt_sales/ |
+| **로컬 개발** | http://127.0.0.1:8080 (`python server.py`) |
+| **코드 저장소** | https://github.com/hpark999/apt_sales |
 
-> GitHub에 push만 하면 **코드 배포**는 끝납니다. **웹사이트 공개**는 Render 등 클라우드 배포가 추가로 필요합니다.  
-> 자세한 단계: **[DEPLOY.md](./DEPLOY.md)**
+---
+
+## GitHub Pages 최초 설정 (1회만)
+
+### 1. API 키 Secret 등록
+
+1. GitHub → `apt_sales` 저장소 → **Settings**
+2. **Secrets and variables** → **Actions** → **New repository secret**
+3. Name: `SERVICE_KEY` / Value: 공공데이터포털 일반 인증키
+
+### 2. Pages 활성화
+
+1. **Settings** → **Pages**
+2. **Build and deployment** → Source: **GitHub Actions**
+
+### 3. 배포 실행
+
+`main` 브랜치에 push하면 자동 배포됩니다.  
+또는 **Actions** 탭 → **Deploy GitHub Pages** → **Run workflow**
+
+1~2분 후 https://hpark999.github.io/apt_sales/ 에서 확인하세요.
 
 ---
 
@@ -19,34 +38,30 @@
 
 ```bash
 cp .env.example .env
-# .env 파일에 SERVICE_KEY 입력
+# .env에 SERVICE_KEY 입력
 
-python server.py
+python server.py          # 실시간 API (http://127.0.0.1:8080)
+python build_pages.py     # docs/ 생성 (Pages와 동일 구조)
 ```
 
-브라우저: http://127.0.0.1:8080
+---
+
+## GitHub Pages 비활성화 (실습용)
+
+1. **Settings** → **Pages**
+2. Source를 **None**으로 변경 → 사이트 비공개
+
+또는 **Settings** → **Actions** → **General** → Workflow permissions에서 Actions 비활성화
 
 ---
 
-## 공개 배포 (Render, GitHub 연동)
+## 구조
 
-1. [Render](https://render.com) 가입
-2. **New → Blueprint** → GitHub `hpark999/apt_sales` 연결
-3. `SERVICE_KEY` 환경변수 입력
-4. **Apply** → `https://apt-sales-gangnam.onrender.com` 형태 URL 확인
+```
+GitHub Actions (push 시)
+  → API에서 데이터 수집 (SERVICE_KEY)
+  → docs/data.json + docs/index.html 생성
+  → GitHub Pages 배포
+```
 
-상세: [DEPLOY.md](./DEPLOY.md)
-
----
-
-## API 참고
-
-- **운영 엔드포인트** (사용): `RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade`
-- **개발 엔드포인트** (403 발생): `RTMSDataSvcAptTradeDev/...`
-
----
-
-## 비활성화 (실습용)
-
-- **Render**: Dashboard → Suspend / Delete
-- **GitHub**: Settings → Archive this repository
+> GitHub Pages는 정적 파일만 호스팅합니다. API 호출은 Actions에서 수행하고, 결과 JSON을 페이지에 표시합니다.
